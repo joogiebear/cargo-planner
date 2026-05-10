@@ -241,17 +241,27 @@ function App({ authedUser = null, onSignOut = null }) {
       : []
   ), [items, activeShipment]);
 
-  // Pack each truck (using scoped items only)
+  // Pack each truck (using scoped items only). Skip stale ids: persisted
+  // scenarioTrucks may reference trucks that have since been deleted.
   const packed = useMemo(() => {
     const out = {};
     for (const tid of scenarioTrucks) {
       const tk = data.trucks.find(x => x.id === tid);
+      if (!tk) continue;
       const truckItems = scopedItems.filter(i => i.truckId === tid);
       const result = packTruck(tk, truckItems, { fragileTop: constraints.fragileTop });
       out[tid] = { truck: tk, ...result };
     }
     return out;
-  }, [scenarioTrucks, scopedItems, constraints.fragileTop]);
+  }, [scenarioTrucks, scopedItems, constraints.fragileTop, data.trucks]);
+
+  // Prune persisted scenarioTrucks of any IDs that no longer exist. Without
+  // this the empty list would persist forever (and the user would never see
+  // any trucks even after recreating the fleet).
+  useEffect(() => {
+    const valid = scenarioTrucks.filter(tid => data.trucks.some(t => t.id === tid));
+    if (valid.length !== scenarioTrucks.length) setScenarioTrucks(valid);
+  }, [data.trucks, scenarioTrucks]);
 
   const truck = data.trucks.find(x => x.id === activeTruck) || PLACEHOLDER_TRUCK;
   const activePacked = packed[activeTruck] || { placed: [], unplaced: [] };

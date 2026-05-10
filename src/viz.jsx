@@ -8,6 +8,7 @@ const { useMemo, useEffect, useRef, useState } = React;
 // Truck dims (L, W, H) in inches.
 // Returns { placed: [{id, x,y,z, L,W,H}], unplaced: [...], }
 window.packTruck = function packTruck(truck, items, opts = {}) {
+  if (!truck) return { placed: [], unplaced: items || [] };
   const { fragileTop = true, balance = true } = opts;
   const T = { L: truck.L, W: truck.W, H: truck.H };
   // Sort: heaviest first, non-stackable first
