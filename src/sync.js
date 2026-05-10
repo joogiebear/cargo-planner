@@ -18,6 +18,229 @@ function uuidToLegacy(collection, uuid) {
   return hit?.id || null;
 }
 
+// -- global data-change notification -----------------------------------
+// Components listening to window.addEventListener('cp-data-changed', ...)
+// can refresh themselves whenever a CRUD here mutates window.CP_DATA / CP_USERS.
+function notifyDataChanged(key) {
+  window.dispatchEvent(new CustomEvent('cp-data-changed', { detail: { key } }));
+}
+
+// -- facilities --------------------------------------------------------
+
+export async function saveFacility(form) {
+  if (!supabaseConfigured) return { ok: false, reason: 'no-config' };
+
+  const row = {
+    code: (form.code || '').trim().toUpperCase().slice(0, 8),
+    name: (form.name || '').trim(),
+    city: form.city || null,
+    address: form.address || null,
+    archived: false,
+  };
+
+  let data, error;
+  if (form._uuid) {
+    ({ data, error } = await supabase.from('facilities').update(row).eq('id', form._uuid)
+      .select('id, legacy_id, code, name, city, address').single());
+  } else {
+    row.legacy_id = 'f-' + Math.random().toString(36).slice(2, 7);
+    ({ data, error } = await supabase.from('facilities').insert(row)
+      .select('id, legacy_id, code, name, city, address').single());
+  }
+  if (error) {
+    console.error('[supabase] saveFacility failed', error);
+    return { ok: false, error };
+  }
+  const facility = {
+    id: data.legacy_id,
+    _uuid: data.id,
+    code: data.code,
+    name: data.name,
+    city: data.city,
+    address: data.address,
+    users: 0,
+    trucks: 0,
+  };
+  if (window.CP_DATA) {
+    const list = window.CP_DATA.facilities || [];
+    const idx = list.findIndex(f => f._uuid === facility._uuid);
+    window.CP_DATA.facilities = idx >= 0
+      ? list.map((f, i) => i === idx ? { ...f, ...facility } : f)
+      : [...list, facility];
+  }
+  notifyDataChanged('facilities');
+  return { ok: true, facility };
+}
+
+export async function deleteFacility(facility) {
+  if (window.CP_DATA?.facilities) {
+    window.CP_DATA.facilities = window.CP_DATA.facilities.filter(f => f.id !== facility.id);
+  }
+  if (!supabaseConfigured || !facility._uuid) {
+    notifyDataChanged('facilities');
+    return { ok: true, localOnly: true };
+  }
+  const { error } = await supabase.from('facilities').delete().eq('id', facility._uuid);
+  if (error) {
+    console.error('[supabase] deleteFacility failed', error);
+    return { ok: false, error };
+  }
+  notifyDataChanged('facilities');
+  return { ok: true };
+}
+
+// -- trucks ------------------------------------------------------------
+
+export async function saveTruck(form) {
+  if (!supabaseConfigured) return { ok: false, reason: 'no-config' };
+  const facUuid = window.CP_DATA?.facilities?.find(f => f.id === form.facility)?._uuid;
+  if (!facUuid) return { ok: false, error: { message: 'Facility not found' } };
+
+  const row = {
+    facility_id: facUuid,
+    ref: (form.ref || '').trim(),
+    model: (form.model || '').trim(),
+    type: form.type || 'Sprinter Van',
+    length_in: +form.L || 1,
+    width_in:  +form.W || 1,
+    height_in: +form.H || 1,
+    max_lbs:   +form.maxLbs || 1,
+    axles:     +form.axles || 2,
+    out_of_service: false,
+  };
+
+  let data, error;
+  if (form._uuid) {
+    ({ data, error } = await supabase.from('trucks').update(row).eq('id', form._uuid)
+      .select('id, legacy_id, facility_id, ref, model, type, length_in, width_in, height_in, max_lbs, axles').single());
+  } else {
+    row.legacy_id = 't-' + Math.random().toString(36).slice(2, 7);
+    ({ data, error } = await supabase.from('trucks').insert(row)
+      .select('id, legacy_id, facility_id, ref, model, type, length_in, width_in, height_in, max_lbs, axles').single());
+  }
+  if (error) {
+    console.error('[supabase] saveTruck failed', error);
+    return { ok: false, error };
+  }
+  const truck = {
+    id: data.legacy_id,
+    _uuid: data.id,
+    facility: form.facility,
+    ref: data.ref,
+    model: data.model,
+    type: data.type,
+    L: data.length_in,
+    W: data.width_in,
+    H: data.height_in,
+    maxLbs: data.max_lbs,
+    axles: data.axles,
+  };
+  if (window.CP_DATA) {
+    const list = window.CP_DATA.trucks || [];
+    const idx = list.findIndex(t => t._uuid === truck._uuid);
+    window.CP_DATA.trucks = idx >= 0
+      ? list.map((t, i) => i === idx ? { ...t, ...truck } : t)
+      : [...list, truck];
+  }
+  notifyDataChanged('trucks');
+  return { ok: true, truck };
+}
+
+export async function deleteTruck(truck) {
+  if (window.CP_DATA?.trucks) {
+    window.CP_DATA.trucks = window.CP_DATA.trucks.filter(t => t.id !== truck.id);
+  }
+  if (!supabaseConfigured || !truck._uuid) {
+    notifyDataChanged('trucks');
+    return { ok: true, localOnly: true };
+  }
+  const { error } = await supabase.from('trucks').delete().eq('id', truck._uuid);
+  if (error) {
+    console.error('[supabase] deleteTruck failed', error);
+    return { ok: false, error };
+  }
+  notifyDataChanged('trucks');
+  return { ok: true };
+}
+
+// -- app users + facility access ---------------------------------------
+
+export async function saveAppUser(form) {
+  if (!supabaseConfigured) return { ok: false, reason: 'no-config' };
+
+  const row = {
+    name:   (form.name  || '').trim(),
+    email:  (form.email || '').trim().toLowerCase(),
+    role:   form.role   || 'planner',
+    status: form.status || 'invited',
+    invited_at: new Date().toISOString(),
+  };
+
+  let saved, error;
+  if (form._uuid) {
+    ({ data: saved, error } = await supabase.from('users').update(row).eq('id', form._uuid)
+      .select('id, legacy_id, name, email, role, status, invited_at').single());
+  } else {
+    row.legacy_id = 'u-' + Math.random().toString(36).slice(2, 7);
+    ({ data: saved, error } = await supabase.from('users').insert(row)
+      .select('id, legacy_id, name, email, role, status, invited_at').single());
+  }
+  if (error) {
+    console.error('[supabase] saveAppUser failed', error);
+    return { ok: false, error };
+  }
+
+  // Replace facility access in one shot.
+  await supabase.from('user_facility_access').delete().eq('user_id', saved.id);
+  if ((form.facilities || []).length > 0) {
+    const facUuids = (form.facilities || [])
+      .map(legacyId => window.CP_DATA?.facilities?.find(f => f.id === legacyId)?._uuid)
+      .filter(Boolean);
+    if (facUuids.length > 0) {
+      await supabase.from('user_facility_access').insert(
+        facUuids.map(facility_id => ({ user_id: saved.id, facility_id }))
+      );
+    }
+  }
+
+  const user = {
+    _uuid: saved.id,
+    id: saved.legacy_id,
+    name: saved.name,
+    email: saved.email,
+    role: saved.role,
+    status: saved.status,
+    facilities: form.facilities || [],
+    invitedAt: (saved.invited_at || '').slice(0, 10),
+  };
+
+  const list = window.CP_USERS || [];
+  const idx = list.findIndex(u => u._uuid === user._uuid);
+  window.CP_USERS = idx >= 0
+    ? list.map((u, i) => i === idx ? user : u)
+    : [...list, user];
+
+  notifyDataChanged('users');
+  return { ok: true, user };
+}
+
+export async function deleteAppUser(user) {
+  if (window.CP_USERS) {
+    window.CP_USERS = window.CP_USERS.filter(u => u.id !== user.id);
+  }
+  if (!supabaseConfigured || !user._uuid) {
+    notifyDataChanged('users');
+    return { ok: true, localOnly: true };
+  }
+  const { error } = await supabase.from('users').delete().eq('id', user._uuid);
+  if (error) {
+    console.error('[supabase] deleteAppUser failed', error);
+    return { ok: false, error };
+  }
+  notifyDataChanged('users');
+  return { ok: true };
+}
+
 // -- crates ------------------------------------------------------------
 
 // Insert a brand-new crate into the crates table. Returns the saved row in

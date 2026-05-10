@@ -1,5 +1,6 @@
 import React from 'react';
-import { saveCrate, deleteCrate } from './sync.js';
+import { saveCrate, deleteCrate, saveTruck, deleteTruck } from './sync.js';
+import { supabaseConfigured } from './supabase.js';
 // Shipments, Trucks, Scenarios pages
 
 const { useState: usePgState, useMemo: usePgMemo, useEffect: usePgEffect } = React;
@@ -27,9 +28,13 @@ const STATUS_META = {
 window.CP_SEED_SHIPMENTS = SEED_SHIPMENTS;
 window.ShipmentsPage = function ShipmentsPage({ activeUser } = {}) {
   const data = window.CP_DATA;
-  const [ships, setShips] = usePgState(() => window.CP_STORE?.get('shipments') ?? SEED_SHIPMENTS);
+  // When Supabase is configured, an empty CP_STORE means "no jobs" — don't
+  // surface the demo SEED_SHIPMENTS. The seeds only stand in for local-only
+  // dev (no env vars) so the UI isn't blank.
+  const initialFallback = supabaseConfigured ? [] : SEED_SHIPMENTS;
+  const [ships, setShips] = usePgState(() => window.CP_STORE?.get('shipments') ?? initialFallback);
   usePgEffect(() => window.CP_STORE?.subscribe((k) => {
-    if (k === 'shipments' || k === null) setShips(window.CP_STORE.get('shipments') ?? SEED_SHIPMENTS);
+    if (k === 'shipments' || k === null) setShips(window.CP_STORE.get('shipments') ?? initialFallback);
   }), []);
   usePgEffect(() => { window.CP_STORE?.set('shipments', ships); }, [ships]);
   const [statusFilter, setStatusFilter] = usePgState('all');
@@ -687,22 +692,40 @@ function NewShipmentDialog({ facilities, onClose, onCreate }) {
 
 // ------------------------------------------------------------------- TRUCKS
 
-window.TrucksPage = function TrucksPage() {
-  const data = window.CP_DATA;
-  const [trucks, setTrucks] = usePgState(data.trucks);
+window.TrucksPage = function TrucksPage({ activeUser } = {}) {
+  // Live snapshots of the global data — refresh when 'cp-data-changed' fires.
+  const [trucks, setTrucksLocal] = usePgState(() => window.CP_DATA?.trucks || []);
+  const [facilities, setFacilities] = usePgState(() => window.CP_DATA?.facilities || []);
+  usePgEffect(() => {
+    const handler = () => {
+      setTrucksLocal(window.CP_DATA?.trucks || []);
+      setFacilities(window.CP_DATA?.facilities || []);
+    };
+    window.addEventListener('cp-data-changed', handler);
+    return () => window.removeEventListener('cp-data-changed', handler);
+  }, []);
+  const data = { trucks, facilities };
+
+  // Visibility scope: admin sees everything; everyone else sees only trucks at their facilities.
+  const isAdmin = activeUser?.role === 'admin';
+  const userFacilityIds = activeUser?.facilities || [];
+  const accessibleFacilities = isAdmin ? facilities : facilities.filter(f => userFacilityIds.includes(f.id));
+  const visibleTrucks = isAdmin ? trucks : trucks.filter(t => userFacilityIds.includes(t.facility));
+
   const [facFilter, setFacFilter] = usePgState('all');
   const [q, setQ] = usePgState('');
   const [editing, setEditing] = usePgState(null);
   const [showNew, setShowNew] = usePgState(false);
+  const [busyMsg, setBusyMsg] = usePgState('');
 
-  const facMap = Object.fromEntries(data.facilities.map(f => [f.id, f]));
-  const filtered = trucks.filter(t =>
+  const facMap = Object.fromEntries(facilities.map(f => [f.id, f]));
+  const filtered = visibleTrucks.filter(t =>
     (facFilter === 'all' || t.facility === facFilter) &&
     (!q || `${t.ref} ${t.model} ${t.type}`.toLowerCase().includes(q.toLowerCase()))
   );
 
   const totalCft = (t) => ((t.L * t.W * t.H) / 1728).toFixed(0);
-  const totalCap = trucks.reduce((a, t) => a + t.maxLbs, 0);
+  const totalCap = visibleTrucks.reduce((a, t) => a + t.maxLbs, 0);
 
   return (
     <div className="admin-wrap">
@@ -764,11 +787,31 @@ window.TrucksPage = function TrucksPage() {
         ))}
       </div>
 
-      {editing && <TruckDialog truck={editing} facilities={data.facilities} onClose={() => setEditing(null)}
-        onSave={(t) => { setTrucks(prev => prev.map(x => x.id === t.id ? t : x)); setEditing(null); }}
-        onDelete={(id) => { setTrucks(prev => prev.filter(x => x.id !== id)); setEditing(null); }} />}
-      {showNew && <TruckDialog truck={null} facilities={data.facilities} onClose={() => setShowNew(false)}
-        onSave={(t) => { setTrucks(prev => [...prev, { ...t, id: 't-' + Math.random().toString(36).slice(2,6) }]); setShowNew(false); }} />}
+      {editing && <TruckDialog truck={editing} facilities={accessibleFacilities} onClose={() => setEditing(null)}
+        onSave={async (t) => {
+          setBusyMsg('Saving truck…');
+          const res = await saveTruck({ ...t, _uuid: editing._uuid });
+          setBusyMsg('');
+          if (res.ok) setEditing(null);
+          else alert(res.error?.message || 'Could not save truck.');
+        }}
+        onDelete={async (id) => {
+          if (!confirm('Delete this truck? It must not be assigned to any saved scenario.')) return;
+          setBusyMsg('Deleting…');
+          const res = await deleteTruck(editing);
+          setBusyMsg('');
+          if (res.ok) setEditing(null);
+          else alert(res.error?.message || 'Could not delete truck (it may be in a saved scenario).');
+        }} />}
+      {showNew && <TruckDialog truck={null} facilities={accessibleFacilities} onClose={() => setShowNew(false)}
+        onSave={async (t) => {
+          setBusyMsg('Saving truck…');
+          const res = await saveTruck(t);
+          setBusyMsg('');
+          if (res.ok) setShowNew(false);
+          else alert(res.error?.message || 'Could not save truck.');
+        }} />}
+      {busyMsg && <div style={{ position: 'fixed', bottom: 16, right: 16, padding: '8px 14px', background: 'var(--ink)', color: 'var(--bg)', borderRadius: 4, fontSize: 13, zIndex: 200 }}>{busyMsg}</div>}
     </div>
   );
 };
@@ -876,9 +919,10 @@ const SEED_SCENARIOS = [
 window.CP_SEED_SCENARIOS = SEED_SCENARIOS;
 window.ScenariosPage = function ScenariosPage() {
   const data = window.CP_DATA;
-  const [scens, setScens] = usePgState(() => window.CP_STORE?.get('scenarios') ?? SEED_SCENARIOS);
+  const scenFallback = supabaseConfigured ? [] : SEED_SCENARIOS;
+  const [scens, setScens] = usePgState(() => window.CP_STORE?.get('scenarios') ?? scenFallback);
   usePgEffect(() => window.CP_STORE?.subscribe((k) => {
-    if (k === 'scenarios' || k === null) setScens(window.CP_STORE.get('scenarios') ?? SEED_SCENARIOS);
+    if (k === 'scenarios' || k === null) setScens(window.CP_STORE.get('scenarios') ?? scenFallback);
   }), []);
   usePgEffect(() => { window.CP_STORE?.set('scenarios', scens); }, [scens]);
   const [facFilter, setFacFilter] = usePgState('all');

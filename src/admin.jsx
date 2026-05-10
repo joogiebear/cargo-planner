@@ -1,7 +1,22 @@
 import React from 'react';
+import { saveFacility, deleteFacility, saveAppUser, deleteAppUser } from './sync.js';
+import { supabaseConfigured } from './supabase.js';
 // Admin — users, locations, roles management
 
 const { useState: useAdminState, useMemo: useAdminMemo } = React;
+
+// Subscribe to global data refresh events. Returns the latest snapshot of the
+// requested window.CP_* slice every time saveFacility/saveAppUser/etc. fires
+// 'cp-data-changed'.
+function useLiveData(getter) {
+  const [snap, setSnap] = React.useState(getter);
+  React.useEffect(() => {
+    const handler = () => setSnap(getter());
+    window.addEventListener('cp-data-changed', handler);
+    return () => window.removeEventListener('cp-data-changed', handler);
+  }, []);
+  return snap;
+}
 
 const ROLES = [
   { id: 'admin',    name: 'Admin',             desc: 'Full access across all facilities and settings', scope: 'org' },
@@ -41,16 +56,19 @@ window.CP_USERS = [
 const SEED_USERS = window.CP_USERS;
 
 window.AdminPage = function AdminPage({ onExit }) {
-  const data = window.CP_DATA;
   const [tab, setTab] = useAdminState('users');
-  const [users, setUsers] = useAdminState(() => (window.CP_STORE?.get('users', SEED_USERS)) || SEED_USERS);
-  React.useEffect(() => { window.CP_STORE?.set('users', users); }, [users]);
-  const [facilities, setFacilities] = useAdminState(data.facilities);
+  // Live snapshots — refreshed by 'cp-data-changed' so a save in another tab
+  // (or in Trucks page, or via the topbar facility menu) updates Admin too.
+  const users      = useLiveData(() => window.CP_USERS || []);
+  const facilities = useLiveData(() => window.CP_DATA?.facilities || []);
+  const data = { facilities }; // legacy access pattern
+
   const [showInvite, setShowInvite] = useAdminState(false);
   const [showFacility, setShowFacility] = useAdminState(null);
   const [editingUser, setEditingUser] = useAdminState(null);
   const [q, setQ] = useAdminState('');
   const [facFilter, setFacFilter] = useAdminState(null); // facility id or null = all
+  const [busyMsg, setBusyMsg] = useAdminState('');
 
   const facMap = useAdminMemo(() => Object.fromEntries(facilities.map(f => [f.id, f])), [facilities]);
 
@@ -166,7 +184,13 @@ window.AdminPage = function AdminPage({ onExit }) {
                     <td className="mono muted small">{u.invitedAt}</td>
                     <td className="actions">
                       <button className="btn sm ghost" onClick={() => setEditingUser(u)}>Edit</button>
-                      <button className="btn sm ghost danger" onClick={() => setUsers(prev => prev.filter(x => x.id !== u.id))}>Remove</button>
+                      <button className="btn sm ghost danger" onClick={async () => {
+                        if (!confirm(`Remove ${u.name}? This deletes their access immediately.`)) return;
+                        setBusyMsg('Removing…');
+                        const res = await deleteAppUser(u);
+                        setBusyMsg('');
+                        if (!res.ok) alert(res.error?.message || 'Could not remove user.');
+                      }}>Remove</button>
                     </td>
                   </tr>
                 );
@@ -193,7 +217,16 @@ window.AdminPage = function AdminPage({ onExit }) {
                       <div className="fac-name">{f.name}</div>
                       <div className="fac-city">{f.city}</div>
                     </div>
-                    <button className="btn sm ghost" onClick={() => setShowFacility(f)}>Edit</button>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button className="btn sm ghost" onClick={() => setShowFacility(f)}>Edit</button>
+                      <button className="btn sm ghost danger" onClick={async () => {
+                        if (!confirm(`Delete facility "${f.name}"? Trucks at this facility must be removed first.`)) return;
+                        setBusyMsg('Deleting…');
+                        const res = await deleteFacility(f);
+                        setBusyMsg('');
+                        if (!res.ok) alert(res.error?.message || 'Could not delete facility (it may have trucks/jobs attached).');
+                      }}>×</button>
+                    </div>
                   </div>
                   <div className="fac-meta">
                     <div><span className="k">Address</span><span className="v">{f.address}</span></div>
@@ -255,7 +288,7 @@ window.AdminPage = function AdminPage({ onExit }) {
           <table className="admin-table">
             <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th></tr></thead>
             <tbody>
-              {(window.CP_STORE?.get('audit') ?? SEED_AUDIT).map((a, i) => (
+              {(window.CP_STORE?.get('audit') ?? (supabaseConfigured ? [] : SEED_AUDIT)).map((a, i) => (
                 <tr key={i}>
                   <td className="mono small muted">{a.t && a.t.length > 16 ? new Date(a.t).toLocaleString('en-US',{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : a.t}</td>
                   <td>{a.who}</td>
@@ -270,19 +303,28 @@ window.AdminPage = function AdminPage({ onExit }) {
 
       {tab === 'data' && <DataTab />}
 
-      {showInvite && <InviteDialog facilities={facilities} onClose={() => setShowInvite(false)} onInvite={(u) => {
-        setUsers(prev => [{ ...u, id: 'u-' + Math.random().toString(36).slice(2,7), invitedAt: new Date().toISOString().slice(0,10), status: 'pending' }, ...prev]);
-        setShowInvite(false);
+      {showInvite && <InviteDialog facilities={facilities} onClose={() => setShowInvite(false)} onInvite={async (u) => {
+        setBusyMsg('Saving…');
+        const res = await saveAppUser({ ...u, status: 'invited' });
+        setBusyMsg('');
+        if (res.ok) setShowInvite(false);
+        else alert(res.error?.message || 'Could not save user. See console.');
       }} />}
-      {editingUser && <EditUserDialog user={editingUser} facilities={facilities} onClose={() => setEditingUser(null)} onSave={(u) => {
-        setUsers(prev => prev.map(x => x.id === u.id ? u : x));
-        setEditingUser(null);
+      {editingUser && <EditUserDialog user={editingUser} facilities={facilities} onClose={() => setEditingUser(null)} onSave={async (u) => {
+        setBusyMsg('Saving…');
+        const res = await saveAppUser({ ...u, _uuid: editingUser._uuid });
+        setBusyMsg('');
+        if (res.ok) setEditingUser(null);
+        else alert(res.error?.message || 'Could not save user. See console.');
       }} />}
-      {showFacility !== null && <FacilityDialog facility={showFacility} onClose={() => setShowFacility(null)} onSave={(f) => {
-        if (f.id) setFacilities(prev => prev.map(x => x.id === f.id ? f : x));
-        else setFacilities(prev => [...prev, { ...f, id: 'f-' + Math.random().toString(36).slice(2,5) }]);
-        setShowFacility(null);
+      {showFacility !== null && <FacilityDialog facility={showFacility} onClose={() => setShowFacility(null)} onSave={async (f) => {
+        setBusyMsg('Saving…');
+        const res = await saveFacility(f);
+        setBusyMsg('');
+        if (res.ok) setShowFacility(null);
+        else alert(res.error?.message || 'Could not save facility. See console.');
       }} />}
+      {busyMsg && <div style={{ position: 'fixed', bottom: 16, right: 16, padding: '8px 14px', background: 'var(--ink)', color: 'var(--bg)', borderRadius: 4, fontSize: 13, zIndex: 200 }}>{busyMsg}</div>}
     </div>
   );
 };

@@ -494,7 +494,7 @@ function App({ authedUser = null, onSignOut = null }) {
       ) : page === 'shipments' ? (
         <main className="main admin-main"><window.ShipmentsPage activeUser={activeUser} /></main>
       ) : page === 'trucks' ? (
-        <main className="main admin-main"><window.TrucksPage /></main>
+        <main className="main admin-main"><window.TrucksPage activeUser={activeUser} /></main>
       ) : page === 'scenarios' ? (
         <main className="main admin-main"><window.ScenariosPage /></main>
       ) : (
