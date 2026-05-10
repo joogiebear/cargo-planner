@@ -511,10 +511,9 @@ function App({ authedUser = null, onSignOut = null }) {
         <div className="subnav-tabs">
           <button className={`subnav-tab ${page==='shipments'?'active':''}`} onClick={() => setPage('shipments')}><span className="num">01</span> Jobs</button>
           <button className={`subnav-tab ${page==='plan'?'active':''}`} onClick={() => setPage('plan')}><span className="num">02</span> Load Plan</button>
-          <button className={`subnav-tab ${page==='trucks'?'active':''}`} onClick={() => setPage('trucks')}><span className="num">03</span> Trucks</button>
-          <button className={`subnav-tab ${page==='scenarios'?'active':''}`} onClick={() => setPage('scenarios')}><span className="num">04</span> Scenarios</button>
+          <button className={`subnav-tab ${page==='scenarios'?'active':''}`} onClick={() => setPage('scenarios')}><span className="num">03</span> Scenarios</button>
           {activeUser?.role !== 'viewer' && (
-            <button className={`subnav-tab ${page==='admin'?'active':''}`} onClick={() => setPage('admin')}><span className="num">05</span> Admin</button>
+            <button className={`subnav-tab ${page==='admin'?'active':''}`} onClick={() => setPage('admin')}><span className="num">04</span> Admin</button>
           )}
         </div>
         <div className="subnav-meta">
@@ -530,8 +529,6 @@ function App({ authedUser = null, onSignOut = null }) {
         <main className="main admin-main"><window.AdminPage onExit={() => setPage('plan')} /></main>
       ) : page === 'shipments' ? (
         <main className="main admin-main"><window.ShipmentsPage activeUser={activeUser} /></main>
-      ) : page === 'trucks' ? (
-        <main className="main admin-main"><window.TrucksPage activeUser={activeUser} /></main>
       ) : page === 'scenarios' ? (
         <main className="main admin-main"><window.ScenariosPage /></main>
       ) : (

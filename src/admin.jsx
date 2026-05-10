@@ -1,5 +1,5 @@
 import React from 'react';
-import { saveFacility, deleteFacility, saveAppUser, deleteAppUser } from './sync.js';
+import { saveFacility, deleteFacility, saveAppUser, deleteAppUser, saveTruck, deleteTruck } from './sync.js';
 import { supabaseConfigured } from './supabase.js';
 // Admin — users, locations, roles management
 
@@ -106,9 +106,10 @@ window.AdminPage = function AdminPage({ onExit }) {
         {[
           { id: 'users', label: 'Users', n: '01' },
           { id: 'facilities', label: 'Facilities', n: '02' },
-          { id: 'roles', label: 'Roles & permissions', n: '03' },
-          { id: 'audit', label: 'Audit', n: '04' },
-          { id: 'data', label: 'Data', n: '05' },
+          { id: 'trucks', label: 'Trucks', n: '03' },
+          { id: 'roles', label: 'Roles & permissions', n: '04' },
+          { id: 'audit', label: 'Audit', n: '05' },
+          { id: 'data', label: 'Data', n: '06' },
         ].map(t => (
           <button key={t.id} className={`admin-tab ${tab===t.id?'active':''}`} onClick={() => setTab(t.id)}>
             <span className="num">{t.n}</span> {t.label}
@@ -248,6 +249,8 @@ window.AdminPage = function AdminPage({ onExit }) {
           </div>
         </section>
       )}
+
+      {tab === 'trucks' && <TrucksAdminTab facilities={facilities} setBusyMsg={setBusyMsg} />}
 
       {tab === 'roles' && (
         <section className="admin-section">
@@ -696,6 +699,113 @@ function FacilityDialog({ facility, onClose, onSave }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// ----------------------------------------------------------------------
+// TrucksAdminTab — fleet management lives inside Admin so all CRUD is in
+// one place. Reuses the existing TruckDialog from pages.jsx via window.
+// ----------------------------------------------------------------------
+function TrucksAdminTab({ facilities, setBusyMsg }) {
+  const trucks = useLiveData(() => window.CP_DATA?.trucks || []);
+  const [facFilter, setFacFilter] = useAdminState('all');
+  const [q, setQ] = useAdminState('');
+  const [editing, setEditing] = useAdminState(null);
+  const [showNew, setShowNew] = useAdminState(false);
+  const TruckDialog = window.CP_TruckDialog;
+  const facMap = Object.fromEntries(facilities.map(f => [f.id, f]));
+  const filtered = trucks.filter(t =>
+    (facFilter === 'all' || t.facility === facFilter) &&
+    (!q || `${t.ref} ${t.model} ${t.type}`.toLowerCase().includes(q.toLowerCase()))
+  );
+
+  return (
+    <section className="admin-section">
+      <div className="admin-toolbar">
+        <div className="input">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.5-3.5"/></svg>
+          <input placeholder="Search by ref or model…" value={q} onChange={e => setQ(e.target.value)} />
+        </div>
+        <button className="btn accent" onClick={() => setShowNew(true)} disabled={facilities.length === 0}>+ Add truck</button>
+      </div>
+
+      {facilities.length === 0 && (
+        <div className="muted small" style={{ padding: 12, marginTop: 8, border: '1px dashed var(--line)', borderRadius: 4 }}>
+          You need to create a facility first. Go to the <strong>Facilities</strong> tab and add one, then come back here.
+        </div>
+      )}
+
+      {facilities.length > 0 && (
+        <div className="fac-filter-row" style={{ marginTop: 12 }}>
+          <span className="fac-filter-label">Facility</span>
+          <button className={`fac-filter ${facFilter==='all' ? 'active' : ''}`} onClick={() => setFacFilter('all')}>
+            <span className="name">All</span>
+            <span className="count">{trucks.length}</span>
+          </button>
+          {facilities.map(f => (
+            <button key={f.id} className={`fac-filter ${facFilter===f.id ? 'active' : ''}`} onClick={() => setFacFilter(f.id)}>
+              <span className="code">{f.code}</span>
+              <span className="count">{trucks.filter(t => t.facility === f.id).length}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <table className="admin-table" style={{ marginTop: 12 }}>
+        <thead>
+          <tr>
+            <th>Ref</th><th>Model</th><th>Type</th><th>Facility</th>
+            <th>L×W×H</th><th>Max lbs</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.length === 0 ? (
+            <tr><td colSpan={7} className="muted small" style={{ padding: 14, textAlign: 'center' }}>
+              {trucks.length === 0 ? 'No trucks yet — click "+ Add truck" to add one.' : 'No matches.'}
+            </td></tr>
+          ) : (
+            filtered.map(t => (
+              <tr key={t.id}>
+                <td className="mono small">{t.ref}</td>
+                <td>{t.model}</td>
+                <td className="muted small">{t.type}</td>
+                <td className="mono small">{facMap[t.facility]?.code || '—'}</td>
+                <td className="mono small">{t.L}×{t.W}×{t.H}″</td>
+                <td className="mono small">{t.maxLbs?.toLocaleString()}</td>
+                <td className="actions">
+                  <button className="btn sm ghost" onClick={() => setEditing(t)}>Edit</button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+
+      {editing && TruckDialog && <TruckDialog truck={editing} facilities={facilities} onClose={() => setEditing(null)}
+        onSave={async (t) => {
+          setBusyMsg('Saving truck…');
+          const res = await saveTruck({ ...t, _uuid: editing._uuid });
+          setBusyMsg('');
+          if (res.ok) setEditing(null);
+          else alert(res.error?.message || 'Could not save truck.');
+        }}
+        onDelete={async () => {
+          if (!confirm('Delete this truck? It must not be in any saved scenario.')) return;
+          setBusyMsg('Deleting…');
+          const res = await deleteTruck(editing);
+          setBusyMsg('');
+          if (res.ok) setEditing(null);
+          else alert(res.error?.message || 'Could not delete truck.');
+        }} />}
+      {showNew && TruckDialog && <TruckDialog truck={null} facilities={facilities} onClose={() => setShowNew(false)}
+        onSave={async (t) => {
+          setBusyMsg('Saving truck…');
+          const res = await saveTruck(t);
+          setBusyMsg('');
+          if (res.ok) setShowNew(false);
+          else alert(res.error?.message || 'Could not save truck.');
+        }} />}
+    </section>
   );
 }
 

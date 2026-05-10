@@ -855,6 +855,7 @@ function TruckSilhouette({ type }) {
   );
 }
 
+window.CP_TruckDialog = TruckDialog;
 function TruckDialog({ truck, facilities, onClose, onSave, onDelete }) {
   const [form, setForm] = usePgState(truck || { ref: '', model: '', type: 'Sprinter Van', facility: facilities[0]?.id, L: 170, W: 70, H: 79, maxLbs: 4500, axles: 2 });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
