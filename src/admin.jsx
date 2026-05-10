@@ -56,7 +56,8 @@ window.CP_USERS = [
 const SEED_USERS = window.CP_USERS;
 
 window.AdminPage = function AdminPage({ onExit }) {
-  const [tab, setTab] = useAdminState('users');
+  const [tab, setTabRaw] = useAdminState(() => window.CP_STORE?.get('adminTab') || 'users');
+  const setTab = (v) => { setTabRaw(v); window.CP_STORE?.set('adminTab', v); };
   // Live snapshots — refreshed by 'cp-data-changed' so a save in another tab
   // (or in Trucks page, or via the topbar facility menu) updates Admin too.
   const users      = useLiveData(() => window.CP_USERS || []);
