@@ -71,6 +71,10 @@ window.ShipmentsPage = function ShipmentsPage({ activeUser } = {}) {
     return c;
   }, [visibleShips]);
 
+  // First-run guidance: nothing in the system yet
+  const showWelcome = data.facilities.length === 0 || (visibleShips.length === 0 && data.trucks.length === 0);
+  const trucks = data.trucks || [];
+
   return (
     <div className="admin-wrap">
       <div className="admin-head">
@@ -86,6 +90,17 @@ window.ShipmentsPage = function ShipmentsPage({ activeUser } = {}) {
           <div><span className="n">${(visibleShips.reduce((a,s) => a + (s.value || 0), 0)/1e6).toFixed(1)}M</span><span className="l">declared value</span></div>
         </div>
       </div>
+
+      {showWelcome && (
+        <WelcomeCard
+          activeUser={activeUser}
+          isAdmin={isAdmin}
+          hasFacilities={data.facilities.length > 0}
+          hasTrucks={trucks.length > 0}
+          hasJobs={visibleShips.length > 0}
+          onCreateJob={() => setShowNew(true)}
+        />
+      )}
 
       <div className="admin-toolbar">
         <div className="input">
@@ -230,6 +245,70 @@ window.ShipmentsPage = function ShipmentsPage({ activeUser } = {}) {
     </div>
   );
 };
+
+function WelcomeCard({ activeUser, isAdmin, hasFacilities, hasTrucks, hasJobs, onCreateJob }) {
+  // Determine the next step the user should take.
+  const goAdminFacilities = () => {
+    window.CP_STORE?.set('adminTab', 'facilities');
+    window.CP_NAV?.setPage?.('admin');
+  };
+  const goAdminTrucks = () => {
+    window.CP_STORE?.set('adminTab', 'trucks');
+    window.CP_NAV?.setPage?.('admin');
+  };
+
+  const steps = [
+    {
+      n: '01',
+      title: 'Add a facility',
+      desc: 'Each facility is a physical location your team operates from.',
+      done: hasFacilities,
+      action: isAdmin ? { label: 'Open Facilities →', onClick: goAdminFacilities } : null,
+    },
+    {
+      n: '02',
+      title: 'Add at least one truck',
+      desc: 'You need a truck before you can plan a load.',
+      done: hasTrucks,
+      action: hasFacilities ? { label: 'Open Trucks →', onClick: goAdminTrucks } : null,
+    },
+    {
+      n: '03',
+      title: 'Create your first job',
+      desc: 'A job is a client pickup — name it, pick the origin facility, then add crates.',
+      done: hasJobs,
+      action: hasTrucks ? { label: '+ New job', onClick: onCreateJob } : null,
+    },
+  ];
+
+  return (
+    <div className="welcome-card">
+      <div className="welcome-head">
+        <div className="welcome-eyebrow mono">Getting started</div>
+        <h2>Welcome{activeUser?.name ? `, ${activeUser.name.split(' ')[0]}` : ''}.</h2>
+        <p className="muted small">
+          {isAdmin
+            ? "You're signed in as an admin. A few quick steps to get the workspace ready for your team."
+            : "Some setup is needed before you can plan loads. An admin needs to finish the steps below first."}
+        </p>
+      </div>
+      <ol className="welcome-steps">
+        {steps.map(s => (
+          <li key={s.n} className={`welcome-step ${s.done ? 'done' : ''}`}>
+            <span className="welcome-num mono">{s.done ? '✓' : s.n}</span>
+            <div className="welcome-step-body">
+              <div className="welcome-step-title">{s.title}</div>
+              <div className="welcome-step-desc muted small">{s.desc}</div>
+            </div>
+            {s.action && !s.done && (
+              <button className="btn sm primary" onClick={s.action.onClick}>{s.action.label}</button>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
 
 function StatusPill({ status }) {
   const m = STATUS_META[status];

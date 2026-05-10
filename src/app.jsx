@@ -1,4 +1,5 @@
 import React from 'react';
+import pkg from '../package.json';
 import { appendAuditRow, saveScenario, saveCrate, saveShipment, syncShipmentManifest } from './sync.js';
 const { useState, useEffect, useMemo, useRef } = React;
 
@@ -457,7 +458,7 @@ function App({ authedUser = null, onSignOut = null }) {
       <header className="topbar">
         <div className="brand">
           <div className="mark">Cargo<em>·</em>Planner</div>
-          <div className="build">v0.4 · atelier build</div>
+          <div className="build">v{pkg.version}</div>
         </div>
         <div className="crumbs">
           <span className="label">Facility</span>
