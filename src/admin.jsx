@@ -783,11 +783,9 @@ function TrucksAdminTab({ facilities, setBusyMsg }) {
 
       {editing && TruckDialog && <TruckDialog truck={editing} facilities={facilities} onClose={() => setEditing(null)}
         onSave={async (t) => {
-          setBusyMsg('Saving truck…');
           const res = await saveTruck({ ...t, _uuid: editing._uuid });
-          setBusyMsg('');
-          if (res.ok) setEditing(null);
-          else alert(res.error?.message || 'Could not save truck.');
+          if (!res.ok) throw new Error(res.error?.message || 'Could not save truck.');
+          setEditing(null);
         }}
         onDelete={async () => {
           if (!confirm('Delete this truck? It must not be in any saved scenario.')) return;
@@ -799,11 +797,9 @@ function TrucksAdminTab({ facilities, setBusyMsg }) {
         }} />}
       {showNew && TruckDialog && <TruckDialog truck={null} facilities={facilities} onClose={() => setShowNew(false)}
         onSave={async (t) => {
-          setBusyMsg('Saving truck…');
           const res = await saveTruck(t);
-          setBusyMsg('');
-          if (res.ok) setShowNew(false);
-          else alert(res.error?.message || 'Could not save truck.');
+          if (!res.ok) throw new Error(res.error?.message || 'Could not save truck.');
+          setShowNew(false);
         }} />}
     </section>
   );

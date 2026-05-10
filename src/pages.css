@@ -57,8 +57,9 @@
 .truck-specs .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--subtle); }
 .truck-specs .v { color: var(--ink); }
 
-.dim-row { display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 8px; align-items: center; }
-.dim-row > div { display: flex; align-items: center; gap: 6px; }
+.dim-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 8px; align-items: center; }
+.dim-row > div { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dim-row input { min-width: 0; width: 100%; }
 .dim-l { font-family: var(--mono); font-size: 11px; color: var(--subtle); width: 12px; }
 .dim-row input { flex: 1; }
 .dim-cft { font-family: var(--mono); font-size: 11px; padding: 6px 10px; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 2px; color: var(--ink); }

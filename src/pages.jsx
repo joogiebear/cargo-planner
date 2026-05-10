@@ -857,9 +857,24 @@ function TruckSilhouette({ type }) {
 
 window.CP_TruckDialog = TruckDialog;
 function TruckDialog({ truck, facilities, onClose, onSave, onDelete }) {
-  const [form, setForm] = usePgState(truck || { ref: '', model: '', type: 'Sprinter Van', facility: facilities[0]?.id, L: 170, W: 70, H: 79, maxLbs: 4500, axles: 2 });
+  const [form, setForm] = usePgState(truck || { ref: '', model: '', type: 'Sprinter', facility: facilities[0]?.id, L: 170, W: 70, H: 79, maxLbs: 4500, axles: 2 });
+  const [saving, setSaving] = usePgState(false);
+  const [err, setErr] = usePgState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const isNew = !truck;
+
+  async function handleSave() {
+    if (saving) return;
+    setSaving(true);
+    setErr('');
+    try {
+      await onSave(form);
+    } catch (e) {
+      setErr(e?.message || 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
   return (
     <div className="dialog-mask" onClick={onClose}>
       <div className="dialog" onClick={e => e.stopPropagation()}>
@@ -877,7 +892,9 @@ function TruckDialog({ truck, facilities, onClose, onSave, onDelete }) {
             <div className="field"><label>Model</label><input value={form.model} onChange={e => set('model', e.target.value)} placeholder="Sprinter 3500" /></div>
             <div className="field"><label>Type</label>
               <select value={form.type} onChange={e => set('type', e.target.value)}>
-                <option>Sprinter Van</option><option>24′ Box</option><option>26′ Box</option><option>53′ Trailer</option><option>24′ Box (EU)</option>
+                <option value="Sprinter">Sprinter</option>
+                <option value="ST">ST — Straight Truck</option>
+                <option value="TT">TT — Tractor Trailer</option>
               </select>
             </div>
           </div>
@@ -894,12 +911,15 @@ function TruckDialog({ truck, facilities, onClose, onSave, onDelete }) {
             <div className="field"><label>Max load (lbs)</label><input type="number" value={form.maxLbs} onChange={e => set('maxLbs', +e.target.value)} /></div>
             <div className="field"><label>Axles</label><input type="number" value={form.axles} onChange={e => set('axles', +e.target.value)} /></div>
           </div>
+          {err && <div style={{ color: 'var(--danger)', fontSize: 13, marginTop: 8 }}>{err}</div>}
         </div>
         <div className="dialog-foot">
-          {!isNew && <button className="btn ghost danger" onClick={() => onDelete(truck.id)}>Delete</button>}
+          {!isNew && <button className="btn ghost danger" onClick={() => onDelete(truck.id)} disabled={saving}>Delete</button>}
           <div style={{ flex: 1 }} />
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" disabled={!form.ref || !form.model} onClick={() => onSave(form)}>{isNew ? 'Add truck' : 'Save'}</button>
+          <button className="btn" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn primary" disabled={!form.ref || !form.model || saving} onClick={handleSave}>
+            {saving ? 'Saving…' : (isNew ? 'Add truck' : 'Save')}
+          </button>
         </div>
       </div>
     </div>
