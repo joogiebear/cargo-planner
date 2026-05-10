@@ -9,6 +9,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
 <body>
+  <script>
+    // Apply the persisted theme synchronously, before React mounts, so a
+    // dark-mode user never sees a white flash on refresh.
+    (function () {
+      try {
+        var stored = JSON.parse(localStorage.getItem('cp_v1') || '{}');
+        var pref = stored.theme || 'system';
+        var actual = pref === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : pref;
+        document.documentElement.setAttribute('data-theme', actual);
+      } catch (e) {}
+    })();
+  </script>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>

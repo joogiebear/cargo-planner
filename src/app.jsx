@@ -3,7 +3,7 @@ import { appendAuditRow, saveScenario, saveCrate } from './sync.js';
 const { useState, useEffect, useMemo, useRef } = React;
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-  "theme": "light",
+  "theme": "system",
   "view": "iso",
   "density": "balanced",
   "fragileTop": true,
@@ -23,6 +23,7 @@ const I = {
   save:    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M5 5v14h14V8l-3-3H5z"/><path d="M9 5v4h6"/></svg>,
   sun:     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/></svg>,
   moon:    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M20 14.5A8 8 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>,
+  monitor: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>,
   caret:   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>,
   close:   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 6l12 12M18 6 6 18"/></svg>,
   bell:    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2H4.5L6 16z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>,
@@ -84,7 +85,23 @@ function usePersist(key, defaultValue) {
 
 function App({ authedUser = null, onSignOut = null }) {
   const { useRef, useCallback } = React;
-  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  // Hydrate theme from localStorage so refresh keeps the user's choice.
+  const initialTheme = CP_STORE.get('theme', null);
+  const [t, setTweak] = useTweaks({ ...TWEAK_DEFAULTS, ...(initialTheme ? { theme: initialTheme } : {}) });
+  // Persist theme on every change.
+  useEffect(() => { CP_STORE.set('theme', t.theme); }, [t.theme]);
+
+  // OS-preferred theme tracker, used when t.theme === 'system'.
+  const [systemDark, setSystemDark] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e) => setSystemDark(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  const resolvedTheme = t.theme === 'system' ? (systemDark ? 'dark' : 'light') : t.theme;
   const [page, setPage] = usePersist('page', 'shipments');
   const [toast, setToast] = useState(null);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 2200); return () => clearTimeout(id); }, [toast]);
@@ -144,9 +161,9 @@ function App({ authedUser = null, onSignOut = null }) {
   }, []);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', t.theme);
+    document.documentElement.setAttribute('data-theme', resolvedTheme);
     document.documentElement.style.setProperty('--accent', t.accent || 'oklch(0.52 0.13 38)');
-  }, [t.theme, t.accent]);
+  }, [resolvedTheme, t.accent]);
 
   const data = window.CP_DATA;
   const allUsers = window.CP_USERS || [];
@@ -420,7 +437,7 @@ function App({ authedUser = null, onSignOut = null }) {
   ];
 
   return (
-    <div className="app" data-theme={t.theme}>
+    <div className="app" data-theme={resolvedTheme}>
       {/* Top bar */}
       <header className="topbar">
         <div className="brand">
@@ -452,9 +469,12 @@ function App({ authedUser = null, onSignOut = null }) {
             <span style={{ marginLeft: 6 }}>Search</span>
           </button>
           <button className="icon-btn" title="Notifications">{I.bell}</button>
-          <button className="icon-btn" title="Toggle theme"
-            onClick={() => setTweak('theme', t.theme === 'light' ? 'dark' : 'light')}>
-            {t.theme === 'light' ? I.moon : I.sun}
+          <button className="icon-btn" title={`Theme: ${t.theme}${t.theme === 'system' ? ` (${resolvedTheme})` : ''} — click to cycle`}
+            onClick={() => {
+              const next = t.theme === 'light' ? 'dark' : t.theme === 'dark' ? 'system' : 'light';
+              setTweak('theme', next);
+            }}>
+            {t.theme === 'system' ? I.monitor : t.theme === 'light' ? I.moon : I.sun}
           </button>
           {authedUser ? (
             <span className="user-chip">
@@ -998,8 +1018,9 @@ function App({ authedUser = null, onSignOut = null }) {
       <TweaksPanel title="Tweaks" defaultOpen={false}>
         <TweakSection label="Theme">
           <TweakRadio label="Mode" value={t.theme} onChange={v => setTweak('theme', v)} options={[
-            { label: 'Light', value: 'light' },
-            { label: 'Dark',  value: 'dark' },
+            { label: 'Light',  value: 'light' },
+            { label: 'Dark',   value: 'dark' },
+            { label: 'System', value: 'system' },
           ]} />
           <TweakColor label="Accent" value={t.accent} onChange={v => setTweak('accent', v)}
             options={['#b75a32', '#1f5d4a', '#3a4a8a', '#c9a23c']} />
