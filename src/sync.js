@@ -91,16 +91,32 @@ export async function deleteFacility(facility) {
 
 // -- trucks ------------------------------------------------------------
 
+// Wraps a Supabase promise with a hard timeout so a stalled connection
+// doesn't leave the UI stuck on "Saving…" forever.
+function withTimeout(promise, ms = 12000, label = 'request') {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms / 1000}s — check Supabase status / network.`)),
+      ms,
+    )),
+  ]);
+}
+
 export async function saveTruck(form) {
+  console.log('[saveTruck] called', form);
   if (!supabaseConfigured) return { ok: false, reason: 'no-config' };
   const facUuid = window.CP_DATA?.facilities?.find(f => f.id === form.facility)?._uuid;
-  if (!facUuid) return { ok: false, error: { message: 'Facility not found' } };
+  if (!facUuid) {
+    console.warn('[saveTruck] facility lookup failed', { wantedLegacyId: form.facility, facilities: window.CP_DATA?.facilities });
+    return { ok: false, error: { message: `Facility "${form.facility}" not found in local data — try refreshing.` } };
+  }
 
   const row = {
     facility_id: facUuid,
     ref: (form.ref || '').trim(),
     model: (form.model || '').trim(),
-    type: form.type || 'Sprinter Van',
+    type: form.type || 'Sprinter',
     length_in: +form.L || 1,
     width_in:  +form.W || 1,
     height_in: +form.H || 1,
@@ -108,16 +124,31 @@ export async function saveTruck(form) {
     axles:     +form.axles || 2,
     out_of_service: false,
   };
+  console.log('[saveTruck] inserting row', row);
 
   let data, error;
-  if (form._uuid) {
-    ({ data, error } = await supabase.from('trucks').update(row).eq('id', form._uuid)
-      .select('id, legacy_id, facility_id, ref, model, type, length_in, width_in, height_in, max_lbs, axles').single());
-  } else {
-    row.legacy_id = 't-' + Math.random().toString(36).slice(2, 7);
-    ({ data, error } = await supabase.from('trucks').insert(row)
-      .select('id, legacy_id, facility_id, ref, model, type, length_in, width_in, height_in, max_lbs, axles').single());
+  try {
+    if (form._uuid) {
+      const res = await withTimeout(
+        supabase.from('trucks').update(row).eq('id', form._uuid)
+          .select('id, legacy_id, facility_id, ref, model, type, length_in, width_in, height_in, max_lbs, axles').single(),
+        12000, 'truck UPDATE',
+      );
+      data = res.data; error = res.error;
+    } else {
+      row.legacy_id = 't-' + Math.random().toString(36).slice(2, 7);
+      const res = await withTimeout(
+        supabase.from('trucks').insert(row)
+          .select('id, legacy_id, facility_id, ref, model, type, length_in, width_in, height_in, max_lbs, axles').single(),
+        12000, 'truck INSERT',
+      );
+      data = res.data; error = res.error;
+    }
+  } catch (e) {
+    console.error('[saveTruck] threw', e);
+    return { ok: false, error: { message: e.message || 'Network error' } };
   }
+  console.log('[saveTruck] response', { data, error });
   if (error) {
     console.error('[supabase] saveTruck failed', error);
     return { ok: false, error };
