@@ -1,0 +1,91 @@
+/* Shipments / Trucks / Scenarios */
+
+/* segmented control */
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line-soft); border-radius: 3px; overflow: hidden; }
+.seg button { background: transparent; border: 0; padding: 7px 14px; font-size: 12px; color: var(--ink-2); cursor: pointer; font-family: inherit; }
+.seg button.on { background: var(--ink); color: var(--bg); }
+
+/* ---------- Shipments ---------- */
+.ship-table .clickable-row { cursor: pointer; transition: background 0.12s ease; }
+.ship-table .clickable-row:hover { background: var(--panel-2); }
+
+.ship-route { display: flex; align-items: center; gap: 8px; }
+.ship-route .arrow { color: var(--subtle); font-family: var(--mono); }
+.ship-route .dest { font-size: 13px; }
+
+.prio-pill { display: inline-block; margin-left: 6px; padding: 1px 6px; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; background: color-mix(in oklab, var(--accent) 12%, var(--panel)); color: var(--accent); border-radius: 2px; vertical-align: middle; }
+.climate-pill { display: inline-block; margin-left: 6px; padding: 1px 6px; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; background: color-mix(in oklab, oklch(0.55 0.10 200) 12%, var(--panel)); color: oklch(0.42 0.10 200); border-radius: 2px; vertical-align: middle; }
+
+.status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; background: color-mix(in oklab, var(--c) 8%, var(--panel)); color: var(--c); border: 1px solid color-mix(in oklab, var(--c) 30%, var(--line)); border-radius: 2px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+
+.flag-chip { display: inline-block; padding: 1px 5px; margin-right: 3px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 2px; color: var(--subtle); }
+
+/* Shipments board */
+.ship-board { display: grid; grid-template-columns: repeat(5, minmax(220px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 12px; }
+.ship-col { background: var(--panel); border: 1px solid var(--line-soft); border-radius: 4px; min-height: 280px; display: flex; flex-direction: column; }
+.ship-col-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line-soft); }
+.ship-col-title { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; flex: 1; }
+.ship-col-count { font-family: var(--mono); font-size: 11px; color: var(--subtle); }
+.ship-col-body { padding: 10px; display: grid; gap: 8px; }
+.ship-card { padding: 12px; background: var(--bg); border: 1px solid var(--line-soft); border-radius: 3px; cursor: pointer; display: grid; gap: 6px; transition: all 0.12s ease; }
+.ship-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.ship-card-ref { font-family: var(--mono); font-size: 10px; color: var(--subtle); letter-spacing: 0.06em; }
+.ship-card-name { font-family: var(--display); font-style: italic; font-size: 16px; line-height: 1.15; }
+.ship-card-route { display: flex; align-items: center; gap: 6px; }
+.ship-card-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--subtle); padding-top: 6px; border-top: 1px dashed var(--line-soft); }
+
+/* Shipment detail dialog */
+.dialog-lg { max-width: 880px; width: 92vw; }
+.ship-detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 24px; padding: 14px 0 18px; border-bottom: 1px solid var(--line-soft); margin-bottom: 18px; }
+.dt-block .dt-k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--subtle); margin-bottom: 4px; }
+.dt-block .dt-v { font-size: 14px; color: var(--ink); }
+.dt-section { margin-top: 16px; }
+.dt-section-head { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 8px; border-bottom: 1px solid var(--line-soft); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--subtle); }
+.dt-notes { font-size: 13px; color: var(--ink-2); padding: 12px 0; line-height: 1.5; }
+
+/* ---------- Trucks ---------- */
+.truck-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.truck-card { background: var(--panel); border: 1px solid var(--line-soft); border-radius: 4px; padding: 18px; cursor: pointer; transition: all 0.15s ease; }
+.truck-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.truck-card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 12px; }
+.truck-ref { font-family: var(--mono); font-size: 13px; letter-spacing: 0.04em; }
+.truck-model { font-family: var(--display); font-style: italic; font-size: 18px; line-height: 1.15; margin-top: 2px; }
+.truck-svg { padding: 8px 0; color: var(--ink-2); border-top: 1px dashed var(--line-soft); border-bottom: 1px dashed var(--line-soft); margin-bottom: 12px; }
+.truck-specs { display: grid; gap: 6px; }
+.truck-specs > div { display: flex; justify-content: space-between; font-size: 12.5px; }
+.truck-specs .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--subtle); }
+.truck-specs .v { color: var(--ink); }
+
+.dim-row { display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 8px; align-items: center; }
+.dim-row > div { display: flex; align-items: center; gap: 6px; }
+.dim-l { font-family: var(--mono); font-size: 11px; color: var(--subtle); width: 12px; }
+.dim-row input { flex: 1; }
+.dim-cft { font-family: var(--mono); font-size: 11px; padding: 6px 10px; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 2px; color: var(--ink); }
+
+/* ---------- Scenarios ---------- */
+.scen-group { margin-bottom: 24px; }
+.scen-group-head { display: flex; justify-content: space-between; padding-bottom: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--line-soft); }
+.scen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.scen-card { background: var(--panel); border: 1px solid var(--line-soft); border-radius: 4px; padding: 16px; display: grid; gap: 12px; align-content: start; transition: all 0.15s ease; }
+.scen-card:hover { border-color: color-mix(in oklab, var(--accent) 40%, var(--line)); }
+.scen-card.compared { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.scen-head { display: flex; align-items: flex-start; gap: 10px; }
+.scen-check { display: flex; align-items: center; padding-top: 2px; }
+.scen-name { flex: 1; font-family: var(--display); font-style: italic; font-size: 17px; line-height: 1.2; }
+.scen-status { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; padding: 2px 7px; border-radius: 2px; border: 1px solid var(--line-soft); }
+.scen-status.s-active   { color: var(--good); border-color: color-mix(in oklab, var(--good) 30%, var(--line)); background: color-mix(in oklab, var(--good) 6%, var(--panel)); }
+.scen-status.s-draft    { color: oklch(0.55 0.14 80); border-color: color-mix(in oklab, oklch(0.55 0.14 80) 30%, var(--line)); background: color-mix(in oklab, oklch(0.55 0.14 80) 6%, var(--panel)); }
+.scen-status.s-archived { color: var(--subtle); }
+
+.scen-meters { display: grid; gap: 8px; }
+.scen-meter .ml { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px; color: var(--subtle); margin-bottom: 4px; letter-spacing: 0.06em; }
+.scen-meter .mb { height: 4px; background: var(--panel-2); border-radius: 2px; overflow: hidden; }
+.scen-meter .mb span { display: block; height: 100%; background: var(--accent); transition: width 0.3s ease; }
+
+.scen-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px 0; border-top: 1px dashed var(--line-soft); border-bottom: 1px dashed var(--line-soft); }
+.scen-meta > div { display: grid; gap: 2px; }
+.scen-meta .k { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--subtle); }
+.scen-meta .v { font-size: 13px; }
+
+.scen-foot { display: flex; justify-content: space-between; align-items: center; }

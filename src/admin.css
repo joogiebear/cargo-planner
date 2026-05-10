@@ -1,0 +1,134 @@
+/* Admin page */
+.admin-main { display: block; padding: 28px 36px 60px; overflow-y: auto; }
+.admin-wrap { max-width: 1320px; margin: 0 auto; }
+
+.admin-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 32px; padding: 8px 0 24px; border-bottom: 1px solid var(--line-soft); margin-bottom: 24px; }
+.admin-eyebrow { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+.admin-h1 { font-family: var(--display); font-size: 44px; font-weight: 400; line-height: 1; margin: 0; letter-spacing: -0.01em; }
+.admin-h1 em { font-style: italic; }
+.admin-sub { color: var(--ink-2); font-size: 14px; margin-top: 8px; max-width: 540px; line-height: 1.55; }
+
+.admin-stats { display: flex; gap: 28px; padding-bottom: 8px; }
+.admin-stats > div { display: grid; gap: 2px; }
+.admin-stats .n { font-family: var(--display); font-size: 32px; line-height: 1; }
+.admin-stats .l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--subtle); }
+
+.admin-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line-soft); margin-bottom: 20px; }
+.admin-tab { background: transparent; border: 0; border-bottom: 1.5px solid transparent; padding: 12px 20px 14px 0; margin-right: 24px; font-size: 13.5px; color: var(--ink-2); cursor: pointer; display: flex; align-items: baseline; gap: 8px; font-family: inherit; }
+.admin-tab .num { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--subtle); }
+.admin-tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+.admin-tab.active .num { color: var(--accent); }
+
+.admin-section { animation: fadeIn 0.18s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.admin-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; }
+.admin-toolbar .input { flex: 0 1 360px; }
+.admin-toolbar .small { font-size: 12px; }
+
+.admin-table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line-soft); border-radius: 4px; overflow: hidden; }
+.admin-table th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--subtle); font-weight: 500; padding: 14px 16px; border-bottom: 1px solid var(--line-soft); background: var(--panel-2); }
+.admin-table td { padding: 14px 16px; border-bottom: 1px solid var(--line-soft); font-size: 13px; vertical-align: middle; }
+.admin-table tr:last-child td { border-bottom: 0; }
+.admin-table .actions { text-align: right; white-space: nowrap; }
+.admin-table .actions .btn + .btn { margin-left: 6px; }
+.admin-table .small { font-size: 11.5px; }
+
+.u-cell { display: flex; align-items: center; gap: 10px; }
+.u-avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in oklab, var(--accent) 14%, var(--panel-2)); color: var(--accent); font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; }
+.u-name { font-family: var(--display); font-size: 16px; font-style: italic; line-height: 1.1; }
+.u-email { font-family: var(--mono); font-size: 11px; color: var(--subtle); }
+
+.role-pill { display: inline-block; padding: 3px 9px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 2px; }
+.role-pill.r-admin    { color: oklch(0.40 0.15 310); border-color: color-mix(in oklab, oklch(0.55 0.15 310) 30%, var(--line)); background: color-mix(in oklab, oklch(0.55 0.15 310) 8%, var(--panel)); }
+.role-pill.r-regional { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 35%, var(--line)); background: color-mix(in oklab, var(--accent) 8%, var(--panel)); }
+.role-pill.r-facility { color: oklch(0.38 0.10 200); border-color: color-mix(in oklab, oklch(0.55 0.10 200) 30%, var(--line)); background: color-mix(in oklab, oklch(0.55 0.10 200) 8%, var(--panel)); }
+.role-pill.r-planner  { color: oklch(0.38 0.08 155); border-color: color-mix(in oklab, oklch(0.55 0.10 155) 30%, var(--line)); background: color-mix(in oklab, oklch(0.55 0.10 155) 8%, var(--panel)); }
+.role-pill.r-viewer   { color: var(--subtle); }
+
+.fac-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.fac-chip { display: inline-block; padding: 3px 8px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 2px; }
+.fac-chip.all { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 35%, var(--line)); }
+.fac-chip.clickable { cursor: pointer; font-family: var(--mono); transition: all 0.12s ease; }
+.fac-chip.clickable:hover { border-color: var(--accent); color: var(--accent); }
+.fac-chip.clickable.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+/* Facility filter row above users table */
+.fac-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; padding: 10px 0; }
+.fac-filter-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--subtle); margin-right: 4px; }
+.fac-filter { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px 6px 8px; background: var(--panel); border: 1px solid var(--line-soft); border-radius: 3px; cursor: pointer; font-family: inherit; transition: all 0.12s ease; }
+.fac-filter:hover { border-color: color-mix(in oklab, var(--accent) 40%, var(--line)); }
+.fac-filter.active { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 8%, var(--panel)); }
+.fac-filter .code { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; padding: 2px 6px; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 2px; }
+.fac-filter.active .code { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 40%, var(--line)); }
+.fac-filter .name { font-size: 12.5px; color: var(--ink); }
+.fac-filter .count { font-family: var(--mono); font-size: 10.5px; color: var(--subtle); padding-left: 4px; border-left: 1px solid var(--line-soft); margin-left: 2px; padding: 0 0 0 8px; min-width: 14px; text-align: right; }
+.fac-filter.active .count { color: var(--accent); }
+
+.fac-filter-banner { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; background: color-mix(in oklab, var(--accent) 6%, var(--panel)); border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line)); border-radius: 3px; font-size: 13px; color: var(--ink); margin-bottom: 12px; }
+.fac-filter-banner strong { font-family: var(--display); font-style: italic; font-weight: 400; color: var(--accent); }
+
+.link-btn { background: transparent; border: 0; padding: 0; font-family: var(--mono); font-size: 12.5px; color: var(--accent); cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
+
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; text-transform: capitalize; }
+.status .d { width: 6px; height: 6px; border-radius: 50%; background: var(--subtle); }
+.status.active .d { background: var(--good); }
+.status.pending .d { background: oklch(0.65 0.14 80); }
+.status.suspended .d { background: var(--accent); }
+
+.btn.danger { color: var(--accent); }
+
+/* Facilities */
+.fac-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.fac-card { background: var(--panel); border: 1px solid var(--line-soft); border-radius: 4px; padding: 18px; }
+.fac-card-head { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 14px; margin-bottom: 16px; }
+.fac-code { width: 44px; height: 44px; display: grid; place-items: center; background: var(--panel-2); border: 1px solid var(--line-soft); font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; border-radius: 2px; }
+.fac-card-title { min-width: 0; display: grid; gap: 4px; }
+.fac-name { font-family: var(--display); font-size: 19px; font-style: italic; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fac-city { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--subtle); text-transform: uppercase; }
+.fac-meta { display: grid; gap: 8px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line-soft); }
+.fac-meta > div { display: flex; justify-content: space-between; font-size: 12.5px; }
+.fac-meta .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--subtle); }
+.fac-meta .v { color: var(--ink); font-family: var(--mono); }
+.fac-managers .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--subtle); margin-bottom: 8px; display: block; }
+.m-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.m-chip { padding: 3px 8px; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 2px; font-size: 11.5px; font-family: var(--display); font-style: italic; }
+
+/* Roles */
+.roles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.role-card { background: var(--panel); border: 1px solid var(--line-soft); border-radius: 4px; padding: 18px; display: grid; gap: 12px; align-content: start; }
+.role-head { display: flex; justify-content: space-between; align-items: center; }
+.role-desc { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+.role-perms { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; color: var(--subtle); }
+.role-perms li { display: flex; align-items: center; gap: 8px; }
+.role-perms li::before { content: '○'; color: var(--line); font-size: 10px; }
+.role-perms li.on { color: var(--ink); }
+.role-perms li.on::before { content: '●'; color: var(--good); }
+.role-scope { display: flex; gap: 10px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.role-scope .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--subtle); }
+.role-scope .v { font-size: 12.5px; color: var(--ink); }
+
+/* Audit */
+.audit-action { font-size: 12.5px; }
+.audit-action.invite { color: oklch(0.45 0.10 200); }
+.audit-action.role { color: oklch(0.40 0.15 310); }
+.audit-action.fac { color: var(--accent); }
+
+/* Dialog: role / facility pickers */
+.role-picker { display: grid; gap: 6px; }
+.role-opt { text-align: left; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line-soft); border-radius: 3px; cursor: pointer; display: grid; gap: 4px; font-family: inherit; }
+.role-opt:hover { background: var(--panel-2); }
+.role-opt.active { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 6%, var(--panel)); }
+.role-opt .t { font-family: var(--display); font-size: 16px; font-style: italic; }
+.role-opt .d { font-size: 12px; color: var(--ink-2); }
+
+.fac-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+.fac-opt { text-align: left; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line-soft); border-radius: 3px; cursor: pointer; display: grid; grid-template-columns: 36px 1fr; grid-template-rows: auto auto; gap: 0 10px; font-family: inherit; }
+.fac-opt .code { grid-row: 1 / 3; align-self: center; font-family: var(--mono); font-size: 11px; padding: 5px 0; text-align: center; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 2px; }
+.fac-opt .nm { font-family: var(--display); font-size: 14px; font-style: italic; }
+.fac-opt .ct { font-family: var(--mono); font-size: 10px; color: var(--subtle); letter-spacing: 0.06em; text-transform: uppercase; }
+.fac-opt:hover { background: var(--panel-2); }
+.fac-opt.on { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 6%, var(--panel)); }
+.fac-opt.on .code { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 40%, var(--line)); }
+.fac-opt:disabled { opacity: 0.85; cursor: default; }
