@@ -33,6 +33,11 @@ const I = {
   truck:   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="2" y="7" width="12" height="9" rx="1"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>,
 };
 
+// Placeholders so Load Plan never crashes when the corresponding row is
+// missing (e.g., admin just deleted the facility, or no trucks yet).
+const PLACEHOLDER_FACILITY = { id: '_none', code: '—', name: 'No facility', city: '', address: '', users: 0, trucks: 0 };
+const PLACEHOLDER_TRUCK    = { id: '_none', ref: '—', model: '—', type: '—', L: 1, W: 1, H: 1, maxLbs: 1, axles: 0, facility: null };
+
 // ---- Format helpers ----
 const fmt = {
   lbs: n => `${n.toLocaleString()} lbs`,
@@ -186,7 +191,9 @@ function App({ authedUser = null, onSignOut = null }) {
     if (!userFacilities.find(f => f.id === facilityId)) setFacilityId(userFacilities[0]?.id);
   }, [activeUserId]);
   const [facMenu, setFacMenu] = useState(false);
-  const facility = data.facilities.find(f => f.id === facilityId);
+  const facility = data.facilities.find(f => f.id === facilityId)
+    || data.facilities[0]
+    || PLACEHOLDER_FACILITY;
 
   // Trucks for this scenario (start with two trucks)
   const facilityTrucks = data.trucks.filter(tk => tk.facility === facilityId);
@@ -246,7 +253,7 @@ function App({ authedUser = null, onSignOut = null }) {
     return out;
   }, [scenarioTrucks, scopedItems, constraints.fragileTop]);
 
-  const truck = data.trucks.find(x => x.id === activeTruck);
+  const truck = data.trucks.find(x => x.id === activeTruck) || PLACEHOLDER_TRUCK;
   const activePacked = packed[activeTruck] || { placed: [], unplaced: [] };
 
   // Utilization
@@ -580,7 +587,7 @@ function App({ authedUser = null, onSignOut = null }) {
           <div className="center-head">
             <div className="scenario-row">
               <div className="scenario-title">
-                <h1>{activeShipment ? activeShipment.name : 'No job open'} {activeShipment && <><em>—</em> {`${facility.code} → ${activeShipment.destination.split(',')[0]}`}</>}</h1>
+                <h1>{activeShipment ? activeShipment.name : 'No job open'} {activeShipment && facility?.code !== '—' && <><em>—</em> {`${facility.code} → ${activeShipment.destination?.split(',')[0] || ''}`}</>}</h1>
                 {activeShipment && <div className="mono small muted" style={{ marginTop: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <span>{activeShipment.ref} · {activeShipment.itemIds.length} crates</span>
                   <span className={`status-pill st-${activeShipment.status || 'planning'}`}>{(activeShipment.status || 'planning').toUpperCase()}</span>
@@ -935,7 +942,7 @@ function App({ authedUser = null, onSignOut = null }) {
           <div className="print-title-block">
             <div className="print-eyebrow mono small">{document.body.dataset.printMode === 'loadcard' ? `LOAD CARD · ${truck.ref}` : 'MANIFEST'}</div>
             <div className="print-title">{activeShipment ? activeShipment.name : 'Frieze Pickup'}</div>
-            <div className="print-sub mono small">{activeShipment ? `${activeShipment.ref} · ${facility.code} → ${activeShipment.destination?.split(',')[0] || ''}` : `${facility.code} → London`}</div>
+            <div className="print-sub mono small">{activeShipment ? `${activeShipment.ref} · ${facility.code} → ${activeShipment.destination?.split(',')[0] || ''}` : `${facility.code}`}</div>
           </div>
           <div className="print-meta mono small">
             <div>{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
