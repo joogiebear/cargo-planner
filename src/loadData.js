@@ -5,7 +5,7 @@
 // On error, the app falls back to whatever data.js installed.
 
 import { supabase, supabaseConfigured } from './supabase.js';
-import { loadScenarios, loadRecentAudit } from './sync.js';
+import { loadScenarios, loadRecentAudit, loadShipments } from './sync.js';
 
 export async function loadReferenceData() {
   if (!supabaseConfigured) return { ok: false, reason: 'no-config' };
@@ -138,19 +138,22 @@ export async function hydrateUserData() {
   const store = window.CP_STORE;
   if (!store) return { ok: false, reason: 'no-store' };
 
-  const [scenRes, auditRes] = await Promise.all([
+  const [scenRes, auditRes, shipRes] = await Promise.all([
     loadScenarios(),
     loadRecentAudit(200),
+    loadShipments(),
   ]);
 
-  if (scenRes.ok) store.set('scenarios', scenRes.rows);
+  if (scenRes.ok)  store.set('scenarios', scenRes.rows);
   if (auditRes.ok) store.set('audit', auditRes.rows);
+  if (shipRes.ok)  store.set('shipments', shipRes.rows);
 
   return {
     ok: true,
     counts: {
       scenarios: scenRes.rows.length,
-      audit: auditRes.rows.length,
+      audit:     auditRes.rows.length,
+      shipments: shipRes.rows.length,
     },
   };
 }

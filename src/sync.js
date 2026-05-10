@@ -366,6 +366,162 @@ export async function deleteCrate(crate) {
   return { ok: true };
 }
 
+// -- shipments (Phase 3c) ----------------------------------------------
+
+// DB row → prototype shape used by ShipmentsPage / ShipmentDetail / app.jsx
+function shipmentRowToApp(row, manifestCrateUuids) {
+  const data = window.CP_DATA || {};
+  const facilities = data.facilities || [];
+  const items      = data.items      || [];
+  const meta = row.metadata || {};
+
+  const itemIds = manifestCrateUuids
+    .map(uuid => uuidToLegacy(items, uuid))
+    .filter(Boolean);
+
+  // Sum value from linked crates (the prototype expects a `value` number).
+  const value = manifestCrateUuids.reduce((sum, uuid) => {
+    const it = items.find(i => i._uuid === uuid);
+    return sum + (it?.value || 0);
+  }, 0);
+
+  return {
+    _uuid: row.id,
+    id: row.legacy_id || ('sh-' + row.id.slice(0, 6)),
+    ref: row.ref,
+    name: row.name,
+    origin: uuidToLegacy(facilities, row.origin_facility_id),
+    destination: row.destination || '',
+    pickup:  row.pickup_date || '',
+    arrive:  meta.arrive  || '',
+    handler: meta.handler || '',
+    priority: meta.priority || 'normal',
+    climate: !!meta.climate,
+    value,
+    notes: row.notes || '',
+    status: row.status,
+    loadedAt: row.loaded_at,
+    itemIds,
+  };
+}
+
+// Map a possibly-mixed string ("2026-05-21" or "") to a value Postgres
+// will accept for a `date` column (or null).
+function asDate(s) {
+  if (!s) return null;
+  const m = String(s).match(/\d{4}-\d{2}-\d{2}/);
+  return m ? m[0] : null;
+}
+
+export async function saveShipment(form) {
+  if (!supabaseConfigured) return { ok: false, reason: 'no-config' };
+  const facilities = window.CP_DATA?.facilities || [];
+  const facUuid = facilities.find(f => f.id === form.origin)?._uuid;
+  if (!facUuid) return { ok: false, error: { message: `Origin facility "${form.origin}" not found` } };
+
+  const row = {
+    ref: form.ref || ('JOB-' + new Date().getFullYear() + '-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0')),
+    name: form.name || 'Untitled job',
+    origin_facility_id: facUuid,
+    destination: form.destination || '',
+    pickup_date: asDate(form.pickup),
+    status: (form.status === 'draft' || !form.status) ? 'planning' : form.status,
+    loaded_at: form.loadedAt || null,
+    notes: form.notes || null,
+    metadata: {
+      arrive: form.arrive || '',
+      handler: form.handler || '',
+      priority: form.priority || 'normal',
+      climate: !!form.climate,
+    },
+  };
+
+  let saved, error;
+  if (form._uuid) {
+    ({ data: saved, error } = await supabase.from('shipments').update(row).eq('id', form._uuid)
+      .select('id, legacy_id, ref, name, origin_facility_id, destination, pickup_date, status, loaded_at, notes, metadata').single());
+  } else {
+    row.legacy_id = form.id || ('sh-' + Math.random().toString(36).slice(2, 7));
+    ({ data: saved, error } = await supabase.from('shipments').insert(row)
+      .select('id, legacy_id, ref, name, origin_facility_id, destination, pickup_date, status, loaded_at, notes, metadata').single());
+  }
+  if (error) {
+    console.error('[supabase] saveShipment failed', error);
+    return { ok: false, error };
+  }
+
+  // Preserve the manifest if we're updating; on new shipments, manifest is empty.
+  let manifest = [];
+  if (form._uuid) {
+    const { data: rows } = await supabase.from('shipment_crates').select('crate_id').eq('shipment_id', saved.id);
+    manifest = (rows || []).map(r => r.crate_id);
+  }
+  return { ok: true, shipment: shipmentRowToApp(saved, manifest) };
+}
+
+export async function deleteShipment(shipment) {
+  if (!supabaseConfigured || !shipment._uuid) return { ok: true, localOnly: true };
+  // shipment_crates have ON DELETE CASCADE so the manifest is cleaned up automatically.
+  const { error } = await supabase.from('shipments').delete().eq('id', shipment._uuid);
+  if (error) {
+    console.error('[supabase] deleteShipment failed', error);
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
+
+// Replace the manifest in one round-trip pair: delete-all + insert-many.
+// Returns the resolved itemIds for the caller to merge into local state.
+export async function syncShipmentManifest(shipment, crateLegacyIds) {
+  if (!supabaseConfigured || !shipment._uuid) return { ok: true, localOnly: true };
+
+  const items = window.CP_DATA?.items || [];
+  const crateUuids = (crateLegacyIds || [])
+    .map(legacyId => items.find(i => i.id === legacyId)?._uuid)
+    .filter(Boolean);
+
+  const { error: delErr } = await supabase.from('shipment_crates').delete().eq('shipment_id', shipment._uuid);
+  if (delErr) {
+    console.error('[supabase] manifest delete failed', delErr);
+    return { ok: false, error: delErr };
+  }
+
+  if (crateUuids.length === 0) return { ok: true };
+
+  const rows = crateUuids.map(crate_id => ({ shipment_id: shipment._uuid, crate_id }));
+  const { error: insErr } = await supabase.from('shipment_crates').insert(rows);
+  if (insErr) {
+    console.error('[supabase] manifest insert failed', insErr);
+    return { ok: false, error: insErr };
+  }
+  return { ok: true };
+}
+
+export async function loadShipments() {
+  if (!supabaseConfigured) return { ok: false, rows: [] };
+
+  const [shipsRes, manifestRes] = await Promise.all([
+    supabase.from('shipments')
+      .select('id, legacy_id, ref, name, origin_facility_id, destination, pickup_date, status, loaded_at, notes, metadata, created_at')
+      .order('created_at', { ascending: false }),
+    supabase.from('shipment_crates').select('shipment_id, crate_id'),
+  ]);
+
+  const errs = [shipsRes, manifestRes].map(r => r.error).filter(Boolean);
+  if (errs.length) {
+    console.error('[supabase] loadShipments failed', errs);
+    return { ok: false, rows: [] };
+  }
+
+  const manifestBy = {};
+  for (const m of manifestRes.data || []) {
+    (manifestBy[m.shipment_id] ||= []).push(m.crate_id);
+  }
+
+  const rows = (shipsRes.data || []).map(s => shipmentRowToApp(s, manifestBy[s.id] || []));
+  return { ok: true, rows };
+}
+
 // -- audit log ---------------------------------------------------------
 
 const AUDIT_KIND_DEFAULT = 'edit';

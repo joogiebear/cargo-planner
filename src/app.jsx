@@ -1,5 +1,5 @@
 import React from 'react';
-import { appendAuditRow, saveScenario, saveCrate } from './sync.js';
+import { appendAuditRow, saveScenario, saveCrate, saveShipment, syncShipmentManifest } from './sync.js';
 const { useState, useEffect, useMemo, useRef } = React;
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
@@ -412,13 +412,11 @@ function App({ authedUser = null, onSignOut = null }) {
     if (newItems.length) {
       setItems(prev => [...prev, ...newItems]);
       if (activeShipment) {
-        const seed = window.CP_SEED_SHIPMENTS || [];
-        const ships = CP_STORE.get('shipments', seed);
-        const updated = ships.map(s => s.id === activeShipment.id
-          ? { ...s, itemIds: [...s.itemIds, ...newItems.map(it => it.id)] }
-          : s);
+        const ships = CP_STORE.get('shipments', []) || [];
+        const newItemIds = [...activeShipment.itemIds, ...newItems.map(it => it.id)];
+        const updated = ships.map(s => s.id === activeShipment.id ? { ...s, itemIds: newItemIds } : s);
         CP_STORE.set('shipments', updated);
-        setActiveShipment(updated.find(s => s.id === activeShipment.id));
+        if (activeShipment._uuid) syncShipmentManifest(activeShipment, newItemIds).catch(err => console.error('manifest sync failed', err));
       }
     }
     setShowPaste(false);
@@ -599,13 +597,14 @@ function App({ authedUser = null, onSignOut = null }) {
                   <span>{activeShipment.ref} · {activeShipment.itemIds.length} crates</span>
                   <span className={`status-pill st-${activeShipment.status || 'planning'}`}>{(activeShipment.status || 'planning').toUpperCase()}</span>
                   {canEditPlans && (activeShipment.status === 'planning' || !activeShipment.status) && (
-                    <button className="link-btn accent" onClick={() => {
-                      const seed = window.CP_SEED_SHIPMENTS || [];
-                      const ships = CP_STORE.get('shipments', seed);
-                      const updated = ships.map(s => s.id === activeShipment.id ? { ...s, status: 'loaded', loadedAt: new Date().toISOString() } : s);
+                    <button className="link-btn accent" onClick={async () => {
+                      const updatedShip = { ...activeShipment, status: 'loaded', loadedAt: new Date().toISOString() };
+                      const ships = CP_STORE.get('shipments', []) || [];
+                      const updated = ships.map(s => s.id === activeShipment.id ? updatedShip : s);
                       CP_STORE.set('shipments', updated);
+                      // Persist to Supabase
+                      if (activeShipment._uuid) await saveShipment(updatedShip);
                       CP_STORE.appendAudit({ who: activeUser?.name || 'Unknown', kind: 'edit', action: 'Marked job loaded', target: `${activeShipment.ref} · ${activeShipment.name}` });
-                      setActiveShipment(updated.find(s => s.id === activeShipment.id));
                       setToast('Job marked as loaded');
                     }}>Mark as loaded ↗</button>
                   )}
@@ -912,10 +911,10 @@ function App({ authedUser = null, onSignOut = null }) {
 
         if (activeShipment) {
           const ships = CP_STORE.get('shipments', []) || [];
-          const updated = ships.map(s => s.id === activeShipment.id
-            ? { ...s, itemIds: [...s.itemIds, crate.id] }
-            : s);
+          const newItemIds = [...activeShipment.itemIds, crate.id];
+          const updated = ships.map(s => s.id === activeShipment.id ? { ...s, itemIds: newItemIds } : s);
           CP_STORE.set('shipments', updated);
+          if (activeShipment._uuid) syncShipmentManifest(activeShipment, newItemIds).catch(err => console.error('manifest sync failed', err));
         }
         setShowAdd(false);
       }} />}

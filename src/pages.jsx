@@ -1,5 +1,5 @@
 import React from 'react';
-import { saveCrate, deleteCrate, saveTruck, deleteTruck } from './sync.js';
+import { saveCrate, deleteCrate, saveTruck, deleteTruck, saveShipment, deleteShipment, syncShipmentManifest } from './sync.js';
 import { supabaseConfigured } from './supabase.js';
 // Shipments, Trucks, Scenarios pages
 
@@ -199,10 +199,32 @@ window.ShipmentsPage = function ShipmentsPage({ activeUser } = {}) {
 
       {open && <ShipmentDetail shipment={ships.find(s => s.id === open)} facMap={facMap} itemMap={itemMap}
         onClose={() => setOpen(null)}
-        onUpdate={(s) => setShips(prev => prev.map(x => x.id === s.id ? s : x))}
-        onDelete={(id) => { setShips(prev => prev.filter(x => x.id !== id)); setOpen(null); }} />}
-      {showNew && <NewShipmentDialog facilities={accessibleFacilities} onClose={() => setShowNew(false)} onCreate={(s) => {
-        setShips(prev => [{ ...s, id: 'sh-' + Math.random().toString(36).slice(2,6), ref: 'SHP-2026-' + (200 + prev.length).toString().padStart(4,'0'), itemIds: [], status: 'draft', value: 0 }, ...prev]);
+        onUpdate={async (s) => {
+          // Optimistic local update for snappy UI
+          setShips(prev => prev.map(x => x.id === s.id ? s : x));
+          if (s._uuid) {
+            // Persist both the row-level edits and the manifest. They run
+            // in parallel since they touch different tables.
+            await Promise.all([
+              saveShipment(s),
+              syncShipmentManifest(s, s.itemIds),
+            ]);
+          }
+        }}
+        onDelete={async (id) => {
+          const s = ships.find(x => x.id === id);
+          if (!s) return;
+          setShips(prev => prev.filter(x => x.id !== id));
+          setOpen(null);
+          if (s._uuid) await deleteShipment(s);
+        }} />}
+      {showNew && <NewShipmentDialog facilities={accessibleFacilities} onClose={() => setShowNew(false)} onCreate={async (s) => {
+        const res = await saveShipment(s);
+        if (!res.ok) {
+          alert(res.error?.message || 'Could not save job. See console.');
+          return;
+        }
+        setShips(prev => [res.shipment, ...prev]);
         setShowNew(false);
       }} />}
     </div>
