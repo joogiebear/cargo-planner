@@ -318,11 +318,9 @@ window.AdminPage = function AdminPage({ onExit }) {
         else alert(res.error?.message || 'Could not save user. See console.');
       }} />}
       {showFacility !== null && <FacilityDialog facility={showFacility} onClose={() => setShowFacility(null)} onSave={async (f) => {
-        setBusyMsg('Saving…');
         const res = await saveFacility(f);
-        setBusyMsg('');
-        if (res.ok) setShowFacility(null);
-        else alert(res.error?.message || 'Could not save facility. See console.');
+        if (!res.ok) throw new Error(res.error?.message || 'Could not save facility (the code may already be in use).');
+        setShowFacility(null);
       }} />}
       {busyMsg && <div style={{ position: 'fixed', bottom: 16, right: 16, padding: '8px 14px', background: 'var(--ink)', color: 'var(--bg)', borderRadius: 4, fontSize: 13, zIndex: 200 }}>{busyMsg}</div>}
     </div>
@@ -653,25 +651,48 @@ function EditUserDialog({ user, facilities, onClose, onSave }) {
 }
 
 function FacilityDialog({ facility, onClose, onSave }) {
-  const [form, setForm] = useAdminState(facility.id ? facility : { code: '', name: '', city: '', address: '', trucks: 0, users: 0 });
+  const [form, setForm] = useAdminState(facility.id
+    ? { ...facility, address: [facility.address, facility.city].filter(Boolean).join(', ') }
+    : { code: '', name: '', address: '', trucks: 0, users: 0 });
+  const [saving, setSaving] = useAdminState(false);
+  const [err, setErr] = useAdminState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  async function handleSave() {
+    if (saving) return;
+    setSaving(true);
+    setErr('');
+    try {
+      // Single-line address: stash the whole thing in `address`, leave `city` null.
+      // The fac-card already displays `address` so nothing else changes.
+      await onSave({ ...form, city: null });
+    } catch (e) {
+      setErr(e?.message || 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <div className="dialog-mask" onClick={onClose}>
+    <div className="dialog-mask" onClick={saving ? undefined : onClose}>
       <div className="dialog" onClick={e => e.stopPropagation()}>
-        <div className="dialog-head"><h3>{facility.id ? 'Edit' : 'Add'} <em>facility</em></h3><button className="icon-btn" onClick={onClose}>×</button></div>
+        <div className="dialog-head"><h3>{facility.id ? 'Edit' : 'Add'} <em>facility</em></h3><button className="icon-btn" onClick={onClose} disabled={saving}>×</button></div>
         <div className="dialog-body">
           <div className="grid-2">
-            <div className="field"><label>Code (3 letters)</label><input value={form.code} onChange={e => set('code', e.target.value.toUpperCase().slice(0,3))} placeholder="CHI" /></div>
+            <div className="field"><label>Code (3 letters)</label><input value={form.code} onChange={e => set('code', e.target.value.toUpperCase().slice(0,3))} placeholder="CHI" autoFocus /></div>
             <div className="field"><label>Name</label><input value={form.name} onChange={e => set('name', e.target.value)} placeholder="Chicago Vault" /></div>
           </div>
-          <div className="grid-2">
-            <div className="field"><label>City</label><input value={form.city} onChange={e => set('city', e.target.value)} placeholder="Chicago, IL" /></div>
-            <div className="field"><label>Address</label><input value={form.address} onChange={e => set('address', e.target.value)} placeholder="1200 W Jackson Blvd" /></div>
+          <div className="field">
+            <label>Address</label>
+            <input value={form.address} onChange={e => set('address', e.target.value)} placeholder="2552 W Ogden Ave Chicago, IL 60608" />
           </div>
+          {err && <div style={{ color: 'var(--danger)', fontSize: 13, marginTop: 8 }}>{err}</div>}
         </div>
         <div className="dialog-foot">
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" disabled={!form.code || !form.name} onClick={() => onSave(form)}>Save</button>
+          <button className="btn" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn primary" disabled={!form.code || !form.name || saving} onClick={handleSave}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
         </div>
       </div>
     </div>
