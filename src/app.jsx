@@ -365,7 +365,9 @@ function App({ authedUser = null, onSignOut = null }) {
         if (s < stages.length) setTimeout(tick, 380);
         else {
           // Distribute queued items (in this job) across trucks
-          const trucksMeta = scenarioTrucks.map(tid => ({ id: tid, t: data.trucks.find(x => x.id === tid), used: 0 }));
+          const trucksMeta = scenarioTrucks
+            .map(tid => ({ id: tid, t: data.trucks.find(x => x.id === tid), used: 0 }))
+            .filter(m => m.t);
           const scopedIds = new Set(scopedItems.map(i => i.id));
           const queued = scopedItems.filter(i => i.truckId === null && i.status !== 'excluded')
             .sort((a, b) => (b.L * b.W * b.H) - (a.L * a.W * a.H));
@@ -625,6 +627,7 @@ function App({ authedUser = null, onSignOut = null }) {
             <div className="truck-tabs">
               {scenarioTrucks.map(tid => {
                 const tk = data.trucks.find(x => x.id === tid);
+                if (!tk) return null;
                 const u = packed[tid] ? computeUtil(tk, packed[tid]) : null;
                 return (
                   <button
@@ -969,6 +972,7 @@ function App({ authedUser = null, onSignOut = null }) {
         <div className="print-manifest-only">
           {scenarioTrucks.map(tid => {
             const tk = data.trucks.find(x => x.id === tid);
+            if (!tk) return null;
             const truckItems = items.filter(i => i.truckId === tid);
             const u = packed[tid] ? computeUtil(tk, packed[tid]) : null;
             return (
